@@ -1,0 +1,59 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: >
+  phishing-backend
+
+  API that saves user credentials into a dynamo db
+
+# More info about Globals: https://github.com/awslabs/serverless-application-model/blob/master/docs/globals.rst
+Globals:
+  Function:
+    Timeout: 3
+    MemorySize: 128
+
+Resources:
+  SaveCredFunction:
+    Type: AWS::Serverless::Function # More info about Function Resource: https://github.com/awslabs/serverless-application-model/blob/master/versions/2016-10-31.md#awsserverlessfunction
+    Properties:
+      CodeUri: save_creds/
+      Handler: app.lambda_handler
+      Runtime: python3.9
+      Policies:
+        - Version: 2012-10-17
+          Statement:
+            - Effect: Allow
+              Action: dynamodb:PutItem
+              Resource: !Sub "arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/saveCreds"
+      Architectures:
+        - x86_64
+      Events:
+        SaveCred:
+          Type: Api # More info about API Event Source: https://github.com/awslabs/serverless-application-model/blob/master/versions/2016-10-31.md#api
+          Properties:
+            Path: /saveCreds
+            Method: post
+  
+  DynamoDBTable:
+    Type: AWS::DynamoDB::Table
+    Properties: 
+      TableName: saveCreds
+      AttributeDefinitions: 
+        - AttributeName: id
+          AttributeType: S
+      KeySchema: 
+        - AttributeName: id
+          KeyType: HASH
+      ProvisionedThroughput: 
+        ReadCapacityUnits: 1
+        WriteCapacityUnits: 1
+
+Outputs:
+  SaveCredApi:
+    Description: "API Gateway endpoint URL for Prod stage for saveCreds function"
+    Value: !Sub "https://${ServerlessRestApi}.execute-api.${AWS::Region}.amazonaws.com/Prod/saveCreds/"
+  SaveCredFunction:
+    Description: "Save credentials bakend for phising site. Lambda Function ARN"
+    Value: !GetAtt SaveCredFunction.Arn
+  SaveCredFunctionIamRole:
+    Description: "Implicit IAM Role created for Save credentials function"
+    Value: !GetAtt SaveCredFunctionRole.Arn
