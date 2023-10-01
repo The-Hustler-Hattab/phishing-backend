@@ -5,13 +5,15 @@ import boto3
 DYNAMO_DB_CLIENT = boto3.client('dynamodb')
 
 TABLE_NAME="saveCreds"
+HEADERS = {
+        'Access-Control-Allow-Origin': '*',
+        "Content-Type": "application/json" 
 
+    }
 
 RESPONSE = {
-        "statusCode": 400,                        # HTTP status code
-        "headers": {
-            "Content-Type": "application/json"  # Response content type
-        },
+        "statusCode": 400,
+        "headers": HEADERS,
         "body": json.dumps( { "error":"Something wrong happend" })         # Convert Python dictionary to JSON string
     }
 
